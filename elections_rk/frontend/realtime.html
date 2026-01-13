@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Updates - RK Elections</title>
+    <link rel="stylesheet" href="/static/theme.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .controls {
+            background: var(--container-bg);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px var(--shadow-color);
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .status.connected {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .status.disconnected {
+            background-color: #f44336;
+            color: white;
+        }
+
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background-color: #0b7dda;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .events {
+            background: var(--container-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px var(--shadow-color);
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .event {
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #2196F3;
+            background-color: var(--control-bg);
+        }
+
+        .event.protocol {
+            border-left-color: #4CAF50;
+        }
+
+        .event.results {
+            border-left-color: #FF9800;
+        }
+
+        .event.incident {
+            border-left-color: #f44336;
+        }
+
+        .event.observer {
+            border-left-color: #9C27B0;
+        }
+
+        .event.stats {
+            border-left-color: #00BCD4;
+        }
+
+        .event-header {
+            font-weight: bold;
+            color: var(--text-primary);
+            margin-bottom: 5px;
+        }
+
+        .event-time {
+            font-size: 0.85em;
+            color: var(--text-secondary);
+        }
+
+        .event-data {
+            margin-top: 10px;
+            padding: 10px;
+            background: var(--hover-bg);
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: var(--text-primary);
+        }
+
+        select,
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: var(--control-bg);
+            color: var(--text-primary);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: var(--control-bg);
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Переключить тему">🌓</button>
+
+    <h1>🔴 Real-time Updates</h1>
+
+    <div class="controls">
+        <h3>
+            Connection Status:
+            <span id="status" class="status disconnected">Disconnected</span>
+        </h3>
+
+        <div>
+            <label>Channel:</label>
+            <select id="channel">
+                <option value="all">All Events</option>
+                <option value="protocols">Protocols Only</option>
+                <option value="results">Results Only</option>
+                <option value="incidents">Incidents Only</option>
+                <option value="observers">Observers Only</option>
+                <option value="stats">Statistics Only</option>
+            </select>
+
+            <button id="connectBtn" onclick="connect()">Connect</button>
+            <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+            <button onclick="clearEvents()">Clear Events</button>
+        </div>
+
+        <div style="margin-top: 15px;">
+            <label>Subscribe to Precinct:</label>
+            <input type="number" id="precinctId" placeholder="Precinct ID" />
+            <button onclick="subscribePrecinct()" id="subscribePrecinctBtn" disabled>Subscribe</button>
+
+            <label style="margin-left: 20px;">Region:</label>
+            <input type="number" id="regionId" placeholder="Region ID" />
+            <button onclick="subscribeRegion()" id="subscribeRegionBtn" disabled>Subscribe</button>
+        </div>
+    </div>
+
+    <div class="events">
+        <h3>Events <span id="eventCount">(0)</span></h3>
+        <div id="eventList"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let eventCount = 0;
+
+        function connect() {
+            const channel = document.getElementById('channel').value;
+            const wsUrl = `ws://localhost:8888/ws/connect?channel=${channel}`;
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = function () {
+                updateStatus(true);
+                addEvent('connection_established', 'system', {
+                    message: `Connected to channel: ${channel}`
+                });
+            };
+
+            ws.onmessage = function (event) {
+                const data = JSON.parse(event.data);
+                addEvent(data.type, getEventCategory(data.type), data);
+            };
+
+            ws.onerror = function (error) {
+                console.error('WebSocket error:', error);
+                addEvent('error', 'system', { message: 'Connection error' });
+            };
+
+            ws.onclose = function () {
+                updateStatus(false);
+                addEvent('connection_closed', 'system', {
+                    message: 'Connection closed'
+                });
+            };
+
+            // Heartbeat
+            setInterval(() => {
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'ping',
+                        timestamp: new Date().toISOString()
+                    }));
+                }
+            }, 30000);
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function subscribePrecinct() {
+            const precinctId = parseInt(document.getElementById('precinctId').value);
+            if (ws && precinctId) {
+                ws.send(JSON.stringify({
+                    type: 'subscribe_precinct',
+                    precinct_id: precinctId
+                }));
+            }
+        }
+
+        function subscribeRegion() {
+            const regionId = parseInt(document.getElementById('regionId').value);
+            if (ws && regionId) {
+                ws.send(JSON.stringify({
+                    type: 'subscribe_region',
+                    region_id: regionId
+                }));
+            }
+        }
+
+        function updateStatus(connected) {
+            const statusEl = document.getElementById('status');
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+            const subscribePrecinctBtn = document.getElementById('subscribePrecinctBtn');
+            const subscribeRegionBtn = document.getElementById('subscribeRegionBtn');
+
+            if (connected) {
+                statusEl.textContent = 'Connected';
+                statusEl.className = 'status connected';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                subscribePrecinctBtn.disabled = false;
+                subscribeRegionBtn.disabled = false;
+            } else {
+                statusEl.textContent = 'Disconnected';
+                statusEl.className = 'status disconnected';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                subscribePrecinctBtn.disabled = true;
+                subscribeRegionBtn.disabled = true;
+            }
+        }
+
+        function getEventCategory(type) {
+            if (type.includes('protocol')) return 'protocol';
+            if (type.includes('result')) return 'results';
+            if (type.includes('incident')) return 'incident';
+            if (type.includes('observer')) return 'observer';
+            if (type.includes('stats')) return 'stats';
+            return 'system';
+        }
+
+        function addEvent(type, category, data) {
+            eventCount++;
+            document.getElementById('eventCount').textContent = `(${eventCount})`;
+
+            const eventList = document.getElementById('eventList');
+            const eventDiv = document.createElement('div');
+            eventDiv.className = `event ${category}`;
+
+            const time = new Date().toLocaleTimeString();
+
+            eventDiv.innerHTML = `
+                <div class="event-header">${type.toUpperCase()}</div>
+                <div class="event-time">${time}</div>
+                <div class="event-data">${JSON.stringify(data, null, 2)}</div>
+            `;
+
+            eventList.insertBefore(eventDiv, eventList.firstChild);
+
+            // Ограничиваем количество событий
+            if (eventList.children.length > 50) {
+                eventList.removeChild(eventList.lastChild);
+            }
+        }
+
+        function clearEvents() {
+            document.getElementById('eventList').innerHTML = '';
+            eventCount = 0;
+            document.getElementById('eventCount').textContent = '(0)';
+        }
+
+        // Auto-connect on load
+        // connect();
+    </script>
+    <script src="/static/theme.js"></script>
+</body>
+
+</html>

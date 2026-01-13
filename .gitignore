@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.env/
+env/
+venv/
+ENV/
+.venv/
+
+# Secrets / local config files
+.env
+*.env
+env
+
+# Local tokens / credentials
+*token*.txt
+hash.txt
+
+# Uploads / generated data
+uploads/
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

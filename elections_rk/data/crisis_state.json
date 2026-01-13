@@ -1,0 +1,9 @@
+{
+  "read_only": false,
+  "maintenance": false,
+  "reason": null,
+  "activated_at": null,
+  "activated_by": null,
+  "cdn_fallback": false,
+  "rate_limit_strict": false
+}

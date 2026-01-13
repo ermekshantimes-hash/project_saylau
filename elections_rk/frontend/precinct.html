@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Результаты по участку - Открытые выборы РК</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      padding: 30px;
+    }
+
+    h1 {
+      color: #333;
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 2.5em;
+    }
+
+    .controls {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 30px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 10px;
+      flex-wrap: wrap;
+    }
+
+    .control-group {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #555;
+      font-weight: 600;
+    }
+
+    select,
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+
+    select:focus,
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    button {
+      padding: 12px 30px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: transform 0.2s;
+      align-self: flex-end;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .info-card {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 30px;
+    }
+
+    .info-card h2 {
+      color: #667eea;
+      margin-bottom: 15px;
+    }
+
+    .info-row {
+      display: flex;
+      padding: 10px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .info-row:last-child {
+      border-bottom: none;
+    }
+
+    .info-label {
+      font-weight: 600;
+      color: #555;
+      min-width: 200px;
+    }
+
+    .info-value {
+      color: #333;
+    }
+
+    .results-section {
+      margin: 30px 0;
+    }
+
+    .results-section h3 {
+      color: #667eea;
+      margin-bottom: 15px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    th,
+    td {
+      padding: 15px;
+      text-align: left;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    th {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      font-weight: 600;
+    }
+
+    tr:hover {
+      background: #f5f5f5;
+    }
+
+    .votes-cell {
+      font-weight: bold;
+      color: #667eea;
+      font-size: 1.2em;
+    }
+
+    .photos-section {
+      margin: 30px 0;
+    }
+
+    .photos-section h3 {
+      color: #667eea;
+      margin-bottom: 15px;
+    }
+
+    .photos-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .photo-card {
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+      background: white;
+    }
+
+    .photo-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .photo-card img {
+      width: 100%;
+      height: auto;
+      display: block;
+      cursor: pointer;
+    }
+
+    .photo-caption {
+      padding: 10px;
+      background: #f8f9fa;
+      text-align: center;
+      color: #666;
+      font-size: 0.9em;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+      font-size: 1.2em;
+    }
+
+    .error {
+      background: #fee;
+      border: 2px solid #fcc;
+      color: #c33;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 20px 0;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal img {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 10px;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 20px;
+      right: 40px;
+      color: white;
+      font-size: 40px;
+      cursor: pointer;
+    }
+
+    @media (max-width: 768px) {
+      .controls {
+        flex-direction: column;
+      }
+
+      .photos-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>🗳️ Результаты по участку</h1>
+
+    <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap;">
+      <a href="index.html"
+        style="padding: 10px 20px; background: #667eea; color: white; text-decoration: none; border-radius: 5px;">🏠
+        Главная</a>
+      <a href="analytics.html"
+        style="padding: 10px 20px; background: #764ba2; color: white; text-decoration: none; border-radius: 5px;">📊
+        Аналитика</a>
+      <a href="map.html"
+        style="padding: 10px 20px; background: #667eea; color: white; text-decoration: none; border-radius: 5px;">🗺️
+        Карта</a>
+      <a href="precinct.html"
+        style="padding: 10px 20px; background: #764ba2; color: white; text-decoration: none; border-radius: 5px;">🗳️
+        Участок</a>
+      <a href="upload.html"
+        style="padding: 10px 20px; background: #667eea; color: white; text-decoration: none; border-radius: 5px;">📤
+        Загрузка</a>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <label for="electionSelect">Выборы:</label>
+        <select id="electionSelect">
+          <option value="">Загрузка...</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label for="precinctId">ID участка:</label>
+        <input type="number" id="precinctId" placeholder="Введите ID участка" min="1">
+      </div>
+
+      <button onclick="loadPrecinctResults()">Показать</button>
+    </div>
+
+    <div id="resultsContainer"></div>
+  </div>
+
+  <!-- Модальное окно для просмотра фото -->
+  <div id="photoModal" class="modal" onclick="closeModal()">
+    <span class="modal-close">&times;</span>
+    <img id="modalImage" src="" alt="Протокол">
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin;
+
+    // Загрузка списка выборов
+    async function loadElections() {
+      try {
+        const response = await fetch(`${API_BASE}/api/elections`);
+        const elections = await response.json();
+
+        const select = document.getElementById('electionSelect');
+        select.innerHTML = elections.map(e =>
+          `<option value="${e.id}">${e.name} (${e.election_date})</option>`
+        ).join('');
+      } catch (error) {
+        console.error('Ошибка загрузки выборов:', error);
+      }
+    }
+
+    // Загрузка результатов по участку
+    async function loadPrecinctResults() {
+      const electionId = document.getElementById('electionSelect').value;
+      const precinctId = document.getElementById('precinctId').value;
+      const container = document.getElementById('resultsContainer');
+
+      if (!electionId || !precinctId) {
+        container.innerHTML = '<div class="error">Пожалуйста, выберите выборы и введите ID участка</div>';
+        return;
+      }
+
+      container.innerHTML = '<div class="loading">⏳ Загрузка данных участка...</div>';
+
+      try {
+        const response = await fetch(`${API_BASE}/api/elections/${electionId}/precinct/${precinctId}`);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        displayResults(data);
+      } catch (error) {
+        console.error('Ошибка загрузки результатов:', error);
+        container.innerHTML = `<div class="error">❌ Ошибка загрузки результатов: ${error.message}<br>Проверьте корректность ID участка</div>`;
+      }
+    }
+
+    // Отображение результатов
+    function displayResults(data) {
+      const totalVotes = data.subjects.reduce((sum, s) => sum + s.votes, 0);
+
+      let html = `
+        <div class="info-card">
+          <h2>📍 Информация об участке</h2>
+          <div class="info-row">
+            <div class="info-label">Номер участка:</div>
+            <div class="info-value"><strong>№${data.precinct_number}</strong></div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Местоположение:</div>
+            <div class="info-value">${data.region_path}</div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Всего голосов:</div>
+            <div class="info-value"><strong>${totalVotes.toLocaleString('ru-RU')}</strong></div>
+          </div>
+          <div class="info-row">
+            <div class="info-label">Протоколов загружено:</div>
+            <div class="info-value"><strong>${data.protocol_photos.length}</strong></div>
+          </div>
+        </div>
+
+        <div class="results-section">
+          <h3>📊 Результаты голосования</h3>
+      `;
+
+      const normType = (t) => (t || '').toString().trim().toLowerCase();
+      const subjects = Array.isArray(data.subjects) ? data.subjects : [];
+      const candidates = subjects.filter(s => normType(s.subject_type) === 'candidate');
+      const parties = subjects.filter(s => normType(s.subject_type) === 'party');
+
+      const renderTable = (title, rows) => {
+        if (!rows.length) return '';
+
+        const sorted = [...rows].sort((a, b) => b.votes - a.votes);
+
+        let t = `<h4 style="margin: 15px 0 10px;">${title}</h4>`;
+        t += `
+          <table>
+            <thead>
+              <tr>
+                <th>№</th>
+                <th>${title === 'Партии' ? 'Партия' : 'Кандидат'}</th>
+                <th>Голоса</th>
+                <th>%</th>
+                <th>Диаграмма</th>
+              </tr>
+            </thead>
+            <tbody>
+        `;
+
+        sorted.forEach((subject, index) => {
+          const percent = totalVotes > 0 ? ((subject.votes / totalVotes) * 100).toFixed(2) : '0.00';
+          t += `
+            <tr>
+              <td>${index + 1}</td>
+              <td><strong>${subject.subject_name}</strong></td>
+              <td class="votes-cell">${subject.votes.toLocaleString('ru-RU')}</td>
+              <td>${percent}%</td>
+              <td>
+                <div style="background: linear-gradient(90deg, #667eea ${percent}%, #e0e0e0 ${percent}%); 
+                            height: 20px; border-radius: 5px; min-width: 150px;">
+                </div>
+              </td>
+            </tr>
+          `;
+        });
+
+        t += `
+                <tr style="background: #f0f0f0; font-weight: bold;">
+                  <td colspan="2">ВСЕГО:</td>
+                  <td class="votes-cell">${totalVotes.toLocaleString('ru-RU')}</td>
+                  <td>100%</td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
+        `;
+
+        return t;
+      };
+
+      html += renderTable('Кандидаты', candidates);
+      html += renderTable('Партии', parties);
+
+      html += `
+        </div>
+      `;
+
+      // Фото протоколов
+      if (data.protocol_photos.length > 0) {
+        html += `
+          <div class="photos-section">
+            <h3>📄 Фото протоколов (для подтверждения достоверности)</h3>
+            <div class="photos-grid">
+        `;
+
+        data.protocol_photos.forEach((photoUrl, index) => {
+          html += `
+            <div class="photo-card">
+              <img src="${API_BASE}${photoUrl}" 
+                   alt="Протокол ${index + 1}" 
+                   onclick="openModal('${API_BASE}${photoUrl}')">
+              <div class="photo-caption">Протокол №${index + 1}</div>
+            </div>
+          `;
+        });
+
+        html += `
+            </div>
+          </div>
+        `;
+      } else {
+        html += `
+          <div class="photos-section">
+            <h3>📄 Фото протоколов</h3>
+            <p style="text-align: center; color: #999; padding: 20px;">
+              Фото протоколов еще не загружены для этого участка
+            </p>
+          </div>
+        `;
+      }
+
+      document.getElementById('resultsContainer').innerHTML = html;
+    }
+
+    // Открытие модального окна с фото
+    function openModal(imageUrl) {
+      const modal = document.getElementById('photoModal');
+      const modalImg = document.getElementById('modalImage');
+      modal.style.display = 'flex';
+      modalImg.src = imageUrl;
+    }
+
+    // Закрытие модального окна
+    function closeModal() {
+      document.getElementById('photoModal').style.display = 'none';
+    }
+
+    // Загрузка выборов при загрузке страницы
+    window.addEventListener('load', loadElections);
+
+    // Обработка Enter в поле ввода
+    document.getElementById('precinctId').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        loadPrecinctResults();
+      }
+    });
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fraud Detection Dashboard - Elections RK</title>
+    <link rel="stylesheet" href="/static/theme.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: #1a1a2e;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5em;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+
+        .panel h2 {
+            margin-top: 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .alert-item {
+            padding: 15px;
+            border-left: 4px solid #ddd;
+            background: #f8f9fa;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+
+        .alert-critical {
+            border-left-color: #dc3545;
+            background: #fff5f5;
+        }
+
+        .alert-high {
+            border-left-color: #ffc107;
+            background: #fffbf0;
+        }
+
+        .alert-medium {
+            border-left-color: #17a2b8;
+        }
+
+        .chart-container {
+            height: 300px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #5a6fd1;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>🛡️ Anti-Fraud Center</h1>
+            <div>
+                <button onclick="runFullScan()">🔄 Run Full Scan</button>
+                <a href="index.html" style="color: white; margin-left: 20px; text-decoration: none;">Exit</a>
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="totalIssues">0</div>
+                <div class="stat-label">Total Issues</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="criticalIssues" style="color: #dc3545;">0</div>
+                <div class="stat-label">Critical Alerts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="duplicateObservers">0</div>
+                <div class="stat-label">Duplicate Observers</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="turnoutAnomalies">0</div>
+                <div class="stat-label">Turnout Anomalies</div>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div>
+                <div class="panel">
+                    <h2>🚨 Active Alerts</h2>
+                    <div id="alertsList">
+                        <div style="text-align: center; padding: 20px;">Loading...</div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>🗺️ Geolocation Anomalies</h2>
+                    <div id="geoList"></div>
+                </div>
+            </div>
+
+            <div>
+                <div class="panel">
+                    <h2>📊 Issue Distribution</h2>
+                    <div class="chart-container">
+                        <canvas id="issuesChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>👥 Collusion Patterns</h2>
+                    <div id="collusionList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let issuesChart = null;
+
+        async function checkAuth() {
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+            // Assume auth is valid for demo, real app would verify token
+            loadDashboard();
+        }
+
+        async function loadDashboard() {
+            const token = localStorage.getItem('access_token');
+            const headers = { 'Authorization': `Bearer ${token}` };
+
+            try {
+                // Load Summary
+                const summaryRes = await fetch(`${API_BASE}/api/fraud/stats/summary`, { headers });
+                const summary = await summaryRes.json();
+
+                document.getElementById('totalIssues').textContent = summary.total_issues;
+                document.getElementById('duplicateObservers').textContent = summary.by_category.duplicate_observers;
+                document.getElementById('turnoutAnomalies').textContent = summary.by_category.turnout_anomalies;
+
+                updateChart(summary.by_category);
+
+                // Load High Priority Alerts
+                const alertsRes = await fetch(`${API_BASE}/api/fraud/alerts/high`, { headers });
+                const alertsData = await alertsRes.json();
+
+                document.getElementById('criticalIssues').textContent = alertsData.count;
+
+                const alertsContainer = document.getElementById('alertsList');
+                if (alertsData.count === 0) {
+                    alertsContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No high priority alerts</div>';
+                } else {
+                    alertsContainer.innerHTML = alertsData.high_priority_alerts.map(alert => `
+                        <div class="alert-item alert-${alert.severity.toLowerCase()}">
+                            <div style="display: flex; justify-content: space-between;">
+                                <strong>${formatCategory(alert.category)}</strong>
+                                <span style="font-weight: bold;">${alert.severity}</span>
+                            </div>
+                            <div style="margin-top: 5px;">
+                                ${formatAlertDetails(alert)}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+
+                // Load Geo Anomalies
+                const geoRes = await fetch(`${API_BASE}/api/fraud/anomalies/geolocation`, { headers });
+                const geoData = await geoRes.json();
+
+                const geoContainer = document.getElementById('geoList');
+                if (geoData.count === 0) {
+                    geoContainer.innerHTML = '<div style="padding: 10px; color: #666;">No geolocation anomalies</div>';
+                } else {
+                    geoContainer.innerHTML = `
+                        <table>
+                            <thead><tr><th>User</th><th>Distance</th><th>Precinct</th></tr></thead>
+                            <tbody>
+                                ${geoData.anomalies.map(a => `
+                                    <tr>
+                                        <td>User #${a.user_id}</td>
+                                        <td>${a.distance_km.toFixed(2)} km</td>
+                                        <td>#${a.precinct_id}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                }
+
+            } catch (error) {
+                console.error(error);
+                alert('Error loading dashboard data. Ensure you are logged in as ADMIN.');
+            }
+        }
+
+        async function runFullScan() {
+            const token = localStorage.getItem('access_token');
+            const btn = document.querySelector('button');
+            btn.disabled = true;
+            btn.textContent = 'Scanning...';
+
+            try {
+                await fetch(`${API_BASE}/api/fraud/scan/full`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                await loadDashboard();
+            } catch (e) {
+                alert('Scan failed');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔄 Run Full Scan';
+            }
+        }
+
+        function updateChart(data) {
+            const ctx = document.getElementById('issuesChart').getContext('2d');
+            if (issuesChart) issuesChart.destroy();
+
+            issuesChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(data).map(k => formatCategory(k)),
+                    datasets: [{
+                        data: Object.values(data),
+                        backgroundColor: [
+                            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right' }
+                    }
+                }
+            });
+        }
+
+        function formatCategory(key) {
+            return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        function formatAlertDetails(alert) {
+            // Customize based on category
+            if (alert.iin) return `IIN: ${alert.iin} (Count: ${alert.count})`;
+            if (alert.precinct_id) return `Precinct #${alert.precinct_id}`;
+            return JSON.stringify(alert).substring(0, 100);
+        }
+
+        checkAuth();
+    </script>
+</body>
+
+</html>

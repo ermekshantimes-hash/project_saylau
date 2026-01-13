@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Загрузка протокола - Открытые выборы РК</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+      padding: 30px;
+    }
+
+    h1 {
+      color: #333;
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 2.5em;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      color: #555;
+      font-weight: 600;
+    }
+
+    select,
+    input[type="number"],
+    input[type="file"] {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #ddd;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+
+    select:focus,
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .results-input-section {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+    }
+
+    .results-input-section h3 {
+      color: #667eea;
+      margin-bottom: 15px;
+    }
+
+    .result-row {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+
+    .result-row label {
+      flex: 2;
+      margin: 0;
+    }
+
+    .result-row input {
+      flex: 1;
+      min-width: 100px;
+    }
+
+    button {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+      margin-top: 20px;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .success {
+      background: #d4edda;
+      border: 2px solid #c3e6cb;
+      color: #155724;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 20px 0;
+    }
+
+    .error {
+      background: #f8d7da;
+      border: 2px solid #f5c6cb;
+      color: #721c24;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 20px 0;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+    }
+
+    .preview-image {
+      max-width: 100%;
+      border-radius: 10px;
+      margin-top: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .file-info {
+      margin-top: 10px;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 5px;
+      font-size: 0.9em;
+      color: #666;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>📤 Загрузка протокола</h1>
+    <p class="subtitle">Форма для загрузки фото протокола и результатов голосования</p>
+
+    <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap;">
+      <a href="index.html"
+        style="padding: 10px 20px; background: #667eea; color: white; text-decoration: none; border-radius: 5px;">🏠
+        Главная</a>
+      <a href="analytics.html"
+        style="padding: 10px 20px; background: #764ba2; color: white; text-decoration: none; border-radius: 5px;">📊
+        Аналитика</a>
+      <a href="map.html"
+        style="padding: 10px 20px; background: #667eea; color: white; text-decoration: none; border-radius: 5px;">🗺️
+        Карта</a>
+      <a href="precinct.html"
+        style="padding: 10px 20px; background: #764ba2; color: white; text-decoration: none; border-radius: 5px;">🗳️
+        Участок</a>
+      <a href="upload.html"
+        style="padding: 10px 20px; background: #667eea; color: white; text-decoration: none; border-radius: 5px;">📤
+        Загрузка</a>
+    </div>
+
+    <form id="uploadForm">
+      <div class="form-group">
+        <label for="electionSelect">Выборы: *</label>
+        <select id="electionSelect" required>
+          <option value="">Загрузка...</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="precinctId">ID участка: *</label>
+        <input type="number" id="precinctId" placeholder="Введите ID участка" min="1" required>
+      </div>
+
+      <div class="form-group">
+        <label for="protocolFile">Фото протокола: *</label>
+        <input type="file" id="protocolFile" accept="image/*" required>
+        <div class="file-info" id="fileInfo" style="display: none;"></div>
+        <img id="previewImage" class="preview-image" style="display: none;">
+      </div>
+
+      <div class="results-input-section" id="resultsSection" style="display: none;">
+        <h3>🗳️ Результаты голосования</h3>
+        <div id="subjectsContainer"></div>
+      </div>
+
+      <div class="results-input-section" id="protocolFields" style="display: none;">
+        <h3>📄 Поля протокола (как на фото)</h3>
+        <div class="result-row">
+          <label>"Против всех"</label>
+          <input type="number" id="metaAgainstAll" min="0" value="0">
+        </div>
+        <div class="result-row">
+          <label>Недействительные бюллетени</label>
+          <input type="number" id="metaInvalidBallots" min="0" value="0">
+        </div>
+        <div class="result-row">
+          <label>Погашенные / неиспользованные бюллетени</label>
+          <input type="number" id="metaUnusedBallots" min="0" value="0">
+        </div>
+      </div>
+
+      <button type="submit" id="submitBtn">📤 Загрузить протокол</button>
+    </form>
+
+    <div id="messageContainer"></div>
+  </div>
+
+  <script>
+    // Используем относительный URL (работает с любым хостом)
+    const API_BASE = window.location.origin;
+    let currentSubjects = [];
+
+    // Загрузка списка выборов
+    async function loadElections() {
+      try {
+        const response = await fetch(`${API_BASE}/api/elections`);
+        const elections = await response.json();
+
+        const select = document.getElementById('electionSelect');
+        select.innerHTML = '<option value="">Выберите выборы</option>' +
+          elections.map(e =>
+            `<option value="${e.id}">${e.name} (${e.election_date})</option>`
+          ).join('');
+      } catch (error) {
+        console.error('Ошибка загрузки выборов:', error);
+        showMessage('Ошибка загрузки списка выборов', 'error');
+      }
+    }
+
+    // Загрузка кандидатов/партий для выборов
+    async function loadSubjects(electionId) {
+      if (!electionId) {
+        document.getElementById('resultsSection').style.display = 'none';
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/elections/${electionId}/subjects`);
+        currentSubjects = await response.json();
+
+        const container = document.getElementById('subjectsContainer');
+        container.innerHTML = currentSubjects.map(subject => `
+          <div class="result-row">
+            <label>${subject.ballot_number ? `${subject.ballot_number}. ` : ''}${subject.name}</label>
+            <input type="number" 
+                   class="votes-input" 
+                   data-subject-id="${subject.id}" 
+                   placeholder="Голоса" 
+                   min="0" 
+                   required>
+          </div>
+        `).join('');
+
+        document.getElementById('resultsSection').style.display = 'block';
+        document.getElementById('protocolFields').style.display = 'block';
+      } catch (error) {
+        console.error('Ошибка загрузки кандидатов:', error);
+        showMessage('Ошибка загрузки списка кандидатов', 'error');
+      }
+    }
+
+    // Предпросмотр изображения
+    document.getElementById('protocolFile').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        // Показать информацию о файле
+        const fileInfo = document.getElementById('fileInfo');
+        fileInfo.textContent = `Файл: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+        fileInfo.style.display = 'block';
+
+        // Показать превью
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const preview = document.getElementById('previewImage');
+          preview.src = e.target.result;
+          preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // Обработка выбора выборов
+    document.getElementById('electionSelect').addEventListener('change', (e) => {
+      loadSubjects(e.target.value);
+    });
+
+    // Отправка формы
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const electionId = document.getElementById('electionSelect').value;
+      const precinctId = document.getElementById('precinctId').value;
+      const file = document.getElementById('protocolFile').files[0];
+
+      if (!electionId || !precinctId || !file) {
+        showMessage('Заполните все обязательные поля', 'error');
+        return;
+      }
+
+      // Собрать результаты
+      const votesInputs = document.querySelectorAll('.votes-input');
+      const subjects = [];
+
+      for (let input of votesInputs) {
+        const votes = parseInt(input.value);
+        if (isNaN(votes) || votes < 0) {
+          showMessage('Введите корректные значения голосов для всех кандидатов', 'error');
+          return;
+        }
+        subjects.push({
+          subject_id: parseInt(input.dataset.subjectId),
+          votes: votes
+        });
+      }
+
+      // Отправка данных
+      const formData = new FormData();
+      formData.append('election_id', electionId);
+      formData.append('precinct_id', precinctId);
+      formData.append('subjects_json', JSON.stringify(subjects));
+
+      const metaAgainstAll = parseInt(document.getElementById('metaAgainstAll')?.value || '0');
+      const metaInvalidBallots = parseInt(document.getElementById('metaInvalidBallots')?.value || '0');
+      const metaUnusedBallots = parseInt(document.getElementById('metaUnusedBallots')?.value || '0');
+
+      if ([metaAgainstAll, metaInvalidBallots, metaUnusedBallots].some(v => Number.isNaN(v) || v < 0)) {
+        showMessage('Поля протокола должны быть числами ≥ 0', 'error');
+        return;
+      }
+
+      formData.append('meta_json', JSON.stringify({
+        against_all: metaAgainstAll,
+        invalid_ballots: metaInvalidBallots,
+        unused_ballots: metaUnusedBallots
+      }));
+      formData.append('file', file);
+
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = '⏳ Загрузка...';
+
+      try {
+        const response = await fetch(`${API_BASE}/api/protocols/upload`, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Ошибка загрузки');
+        }
+
+        const result = await response.json();
+        showMessage(`✅ Протокол успешно загружен! ID: ${result.id}`, 'success');
+
+        // Очистка формы
+        document.getElementById('uploadForm').reset();
+        document.getElementById('previewImage').style.display = 'none';
+        document.getElementById('fileInfo').style.display = 'none';
+        document.getElementById('resultsSection').style.display = 'none';
+        document.getElementById('protocolFields').style.display = 'none';
+
+      } catch (error) {
+        console.error('Ошибка загрузки:', error);
+        showMessage(`❌ Ошибка загрузки: ${error.message}`, 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '📤 Загрузить протокол';
+      }
+    });
+
+    // Показать сообщение
+    function showMessage(text, type) {
+      const container = document.getElementById('messageContainer');
+      container.innerHTML = `<div class="${type}">${text}</div>`;
+
+      setTimeout(() => {
+        container.innerHTML = '';
+      }, 5000);
+    }
+
+    // Загрузка при старте
+    window.addEventListener('load', loadElections);
+  </script>
+</body>
+
+</html>

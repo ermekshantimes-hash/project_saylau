@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель Координатора - Открытые Выборы</title>
+    <link rel="stylesheet" href="/static/theme.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            margin: 0;
+            color: #333;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            margin-top: 0;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            color: #667eea;
+        }
+
+        .list-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .list-item:last-child {
+            border-bottom: none;
+        }
+
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .status-draft {
+            background: #eee;
+            color: #666;
+        }
+
+        .status-review {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-verified {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-rejected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #667eea;
+            color: white;
+        }
+
+        button:hover {
+            background: #5a6fd1;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>🕵️ Панель Координатора</h1>
+            <div>
+                <span id="userInfo">Загрузка...</span>
+                <button onclick="logout()" style="margin-left: 10px; background: #dc3545;">Выйти</button>
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <!-- Протоколы на проверку -->
+            <div class="card">
+                <h2>📄 Протоколы (Очередь)</h2>
+                <div id="protocolsList">
+                    <div style="text-align: center; padding: 20px;">Загрузка...</div>
+                </div>
+            </div>
+
+            <!-- Инциденты -->
+            <div class="card">
+                <h2>🚨 Инциденты</h2>
+                <div id="incidentsList">
+                    <div style="text-align: center; padding: 20px;">Загрузка...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно просмотра протокола -->
+    <div id="protocolModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Протокол #ID</h2>
+            <div style="display: flex; gap: 20px;">
+                <div style="flex: 1;">
+                    <img id="modalImage" src="" style="width: 100%; border-radius: 5px;">
+                </div>
+                <div style="flex: 1;">
+                    <h3>Данные</h3>
+                    <div id="modalData"></div>
+                    <div style="margin-top: 20px;">
+                        <button onclick="verifyProtocol(currentProtocolId, 'VERIFIED')" style="background: #28a745;">✅
+                            Подтвердить</button>
+                        <button onclick="verifyProtocol(currentProtocolId, 'REJECTED')" style="background: #dc3545;">❌
+                            Отклонить</button>
+                        <button onclick="closeModal()" style="background: #6c757d;">Закрыть</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let currentProtocolId = null;
+
+        // Проверка авторизации
+        async function checkAuth() {
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!response.ok) throw new Error('Auth failed');
+                const user = await response.json();
+                document.getElementById('userInfo').textContent = `${user.email} (${user.role})`;
+
+                if (!['ADMIN', 'COORD'].includes(user.role)) {
+                    alert('Доступ запрещен');
+                    window.location.href = 'index.html';
+                }
+
+                loadProtocols();
+                loadIncidents();
+            } catch (e) {
+                window.location.href = 'login.html';
+            }
+        }
+
+        async function loadProtocols() {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch(`${API_BASE}/api/protocols?status=UNDER_REVIEW`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+
+            const container = document.getElementById('protocolsList');
+            if (data.protocols.length === 0) {
+                container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Нет протоколов на проверку</div>';
+                return;
+            }
+
+            container.innerHTML = data.protocols.map(p => `
+                <div class="list-item">
+                    <div>
+                        <strong>Протокол #${p.id}</strong><br>
+                        <small>Участок: ${p.precinct_id} | ${new Date(p.created_at).toLocaleString()}</small>
+                    </div>
+                    <button onclick="openProtocol(${p.id})">Проверить</button>
+                </div>
+            `).join('');
+        }
+
+        async function loadIncidents() {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch(`${API_BASE}/api/incidents?status=OPEN`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+
+            const container = document.getElementById('incidentsList');
+            if (data.incidents.length === 0) {
+                container.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">Нет открытых инцидентов</div>';
+                return;
+            }
+
+            container.innerHTML = data.incidents.map(i => `
+                <div class="list-item">
+                    <div>
+                        <strong>${i.type}</strong> <span class="status-badge status-rejected">${i.severity}</span><br>
+                        <small>${i.description.substring(0, 50)}...</small>
+                    </div>
+                    <button onclick="viewIncident(${i.id})">Детали</button>
+                </div>
+            `).join('');
+        }
+
+        async function openProtocol(id) {
+            currentProtocolId = id;
+            const token = localStorage.getItem('access_token');
+            const response = await fetch(`${API_BASE}/api/protocols/${id}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const p = await response.json();
+
+            document.getElementById('modalTitle').textContent = `Протокол #${p.id} (УИК ${p.precinct_id})`;
+            document.getElementById('modalImage').src = `${API_BASE}${p.file_url}`;
+            document.getElementById('modalData').innerHTML = `
+                <ul>
+                    ${p.items.map(item => `<li>Кандидат ID ${item.candidate_id}: <strong>${item.votes}</strong></li>`).join('')}
+                </ul>
+            `;
+
+            document.getElementById('protocolModal').style.display = 'flex';
+        }
+
+        async function verifyProtocol(id, status) {
+            const token = localStorage.getItem('access_token');
+            await fetch(`${API_BASE}/api/protocols/${id}/verify`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ status: status })
+            });
+
+            closeModal();
+            loadProtocols();
+        }
+
+        function closeModal() {
+            document.getElementById('protocolModal').style.display = 'none';
+        }
+
+        function logout() {
+            localStorage.removeItem('access_token');
+            window.location.href = 'login.html';
+        }
+
+        checkAuth();
+    </script>
+</body>
+
+</html>

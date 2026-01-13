@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта результатов выборов - РК</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .controls {
+            padding: 20px;
+            background: #f8f9fa;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        select {
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        select:hover {
+            border-color: #667eea;
+        }
+
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+
+        .legend {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .legend h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 5px 0;
+        }
+
+        .legend-color {
+            width: 30px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card h3 {
+            color: #667eea;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+
+        .stat-card .value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2em;
+            color: #666;
+        }
+
+        .leaflet-popup-content-wrapper {
+            border-radius: 10px;
+        }
+
+        .popup-content h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .popup-content .winner {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2ecc71;
+            margin: 10px 0;
+        }
+
+        .popup-content .result {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>🗺️ Карта результатов выборов Республики Казахстан</h1>
+            <p>Интерактивная визуализация результатов голосования по участкам</p>
+        </header>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="electionSelect"><strong>Выборы:</strong></label>
+                <select id="electionSelect">
+                    <option value="">Загрузка...</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="viewMode"><strong>Режим:</strong></label>
+                <select id="viewMode">
+                    <option value="winner">Победитель на участке</option>
+                    <option value="turnout">Явка избирателей</option>
+                    <option value="heatmap">Тепловая карта</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="map"></div>
+
+        <div class="stats" id="statsContainer">
+            <div class="loading">Загрузка статистики...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin + '/api';
+
+        // Инициализация карты (центр Казахстана)
+        const map = L.map('map').setView([48.0196, 66.9237], 5);
+
+        // Добавление базового слоя OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 18
+        }).addTo(map);
+
+        // Цвета для кандидатов
+        const candidateColors = [
+            '#2ecc71', '#3498db', '#e74c3c', '#f39c12', '#9b59b6',
+            '#1abc9c', '#e67e22', '#95a5a6', '#34495e', '#16a085'
+        ];
+
+        let markers = [];
+        let currentElection = null;
+        let precincts = [];
+        let candidates = [];
+
+        let boundariesDemoLayer = null;
+        let precinctBoundariesLayer = null;  // Новый слой для полигонов участков
+
+        // Координаты областных центров Казахстана (примерные)
+        const regionCoords = {
+            'Акмолинская': [51.1694, 71.4491],
+            'Актюбинская': [50.2839, 57.1670],
+            'Алматинская': [43.2566, 76.9286],
+            'Атырауская': [47.1164, 51.8826],
+            'ВКО': [49.9795, 82.6176],
+            'Жамбылская': [42.9000, 71.3786],
+            'ЗКО': [51.2167, 51.3667],
+            'Карагандинская': [49.8047, 73.1094],
+            'Костанайская': [53.2144, 63.6246],
+            'Кызылординская': [44.8479, 65.5093],
+            'Мангистауская': [44.6000, 50.1500],
+            'Павлодарская': [52.2873, 76.9674],
+            'СКО': [54.8667, 69.1500],
+            'Туркестанская': [43.3667, 68.4167],
+            'Алматы': [43.2220, 76.8512],
+            'Астана': [51.1694, 71.4491],
+            'Шымкент': [42.3000, 69.6000]
+        };
+
+        // Загрузка выборов
+        async function loadElections() {
+            try {
+                const response = await fetch(`${API_BASE}/elections`);
+                const elections = await response.json();
+
+                const select = document.getElementById('electionSelect');
+                select.innerHTML = elections.map(e =>
+                    `<option value="${e.id}">${e.name} (${e.election_date})</option>`
+                ).join('');
+
+                if (elections.length > 0) {
+                    currentElection = elections[0].id;
+                    loadElectionData(currentElection);
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки выборов:', error);
+            }
+        }
+
+        async function loadBoundariesDemoLayer() {
+            try {
+                const resp = await fetch('/static/boundaries_demo_oskemen.geojson', { cache: 'no-cache' });
+                if (!resp.ok) return;
+                const geojson = await resp.json();
+
+                if (boundariesDemoLayer) {
+                    map.removeLayer(boundariesDemoLayer);
+                    boundariesDemoLayer = null;
+                }
+
+                boundariesDemoLayer = L.geoJSON(geojson, {
+                    pointToLayer: (feature, latlng) => L.marker(latlng),
+                    onEachFeature: (feature, layer) => {
+                        const p = (feature && feature.properties) ? feature.properties : {};
+                        const num = p.precinct_number ?? '';
+                        const place = (p.polling_place || '').toString();
+                        const desc = (p.description || '').toString();
+                        const note = (p.geometry_note || '').toString();
+
+                        const html = `
+                            <div class="popup-content">
+                                <h3>Участок № ${num}</h3>
+                                ${place ? `<div class="result"><strong>Пункт:</strong> ${place}</div>` : ''}
+                                ${desc ? `<div class="result">${desc}</div>` : ''}
+                                ${note ? `<div class="result"><em>${note}</em></div>` : ''}
+                            </div>
+                        `;
+                        layer.bindPopup(html, { maxWidth: 420 });
+                    }
+                }).addTo(map);
+            } catch (e) {
+                console.warn('Не удалось загрузить demo-границы:', e);
+            }
+        }
+
+        // Загрузка данных выборов
+        async function loadElectionData(electionId) {
+            try {
+                document.getElementById('statsContainer').innerHTML = '<div class="loading">Загрузка данных...</div>';
+
+                // Загрузка кандидатов
+                const candidatesResponse = await fetch(`${API_BASE}/elections/${electionId}/subjects`);
+                candidates = await candidatesResponse.json();
+
+                // Загрузка агрегированных результатов
+                const aggregateResponse = await fetch(`${API_BASE}/elections/${electionId}/aggregate?level=country`);
+                const aggregateData = await aggregateResponse.json();
+
+                // УПРОЩЕННАЯ КАРТА: показываем только регионы с агрегированными данными
+                precincts = [];
+
+                // Координаты областных центров
+                const regionsList = [
+                    { name: 'Астана', coords: [51.1694, 71.4491] },
+                    { name: 'Алматы', coords: [43.2220, 76.8512] },
+                    { name: 'Шымкент', coords: [42.3000, 69.6000] },
+                    { name: 'Акмолинская', coords: [51.1694, 71.4491] },
+                    { name: 'Актюбинская', coords: [50.2839, 57.1670] },
+                    { name: 'Алматинская', coords: [43.2566, 76.9286] },
+                    { name: 'Атырауская', coords: [47.1164, 51.8826] },
+                    { name: 'Восточно-Казахстанская', coords: [49.9795, 82.6176] },
+                    { name: 'Жамбылская', coords: [42.9000, 71.3786] },
+                    { name: 'Западно-Казахстанская', coords: [51.2167, 51.3667] },
+                    { name: 'Карагандинская', coords: [49.8047, 73.1094] },
+                    { name: 'Костанайская', coords: [53.2144, 63.6246] },
+                    { name: 'Кызылординская', coords: [44.8479, 65.5093] },
+                    { name: 'Мангистауская', coords: [44.6000, 50.1500] },
+                    { name: 'Павлодарская', coords: [52.2873, 76.9674] },
+                    { name: 'Северо-Казахстанская', coords: [54.8667, 69.1500] },
+                    { name: 'Туркестанская', coords: [43.3667, 68.4167] }
+                ];
+
+                // Создаем виртуальные точки для каждого региона
+                let precinctId = 1;
+                regionsList.forEach(region => {
+                    // Берем первого лидера из агрегированных данных
+                    let winner = aggregateData.results && aggregateData.results.length > 0
+                        ? aggregateData.results[0]
+                        : null;
+
+                    precincts.push({
+                        id: precinctId++,
+                        number: precinctId,
+                        name: region.name,
+                        address: region.name,
+                        region: region.name,
+                        coords: region.coords,
+                        winner: winner,
+                        results: aggregateData.results || [],
+                        total_votes: aggregateData.total_votes || 0
+                    });
+                });
+
+                updateMap();
+                updateStats(aggregateData);
+            } catch (error) {
+                console.error('Ошибка загрузки данных:', error);
+                document.getElementById('statsContainer').innerHTML = '<div class="loading" style="color: red;">Ошибка загрузки данных</div>';
+            }
+        }
+
+        // Обновление карты
+        function updateMap() {
+            // Очистка старых маркеров
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+
+            const viewMode = document.getElementById('viewMode').value;
+
+            precincts.forEach((precinct, index) => {
+                // Использовать координаты из precinct.coords если есть, иначе из regionCoords
+                let coords = precinct.coords || regionCoords[precinct.region] || [48.0196, 66.9237];
+                // Добавить небольшое смещение для визуализации
+                coords = [
+                    coords[0] + (Math.random() - 0.5) * 0.5,
+                    coords[1] + (Math.random() - 0.5) * 0.5
+                ];
+
+                let markerColor = '#95a5a6'; // Серый по умолчанию
+
+                if (viewMode === 'winner' && precinct.winner) {
+                    const candidateIndex = candidates.findIndex(c => c.name === precinct.winner.subject_name);
+                    markerColor = candidateColors[candidateIndex % candidateColors.length];
+                }
+
+                const marker = L.circleMarker(coords, {
+                    radius: 8,
+                    fillColor: markerColor,
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map);
+
+                // Popup с информацией
+                let popupContent = `
+                    <div class="popup-content">
+                        <h3>Участок №${precinct.number}</h3>
+                        <p><strong>${precinct.name}</strong></p>
+                        <p>${precinct.address || ''}</p>
+                `;
+
+                if (precinct.winner) {
+                    popupContent += `
+                        <div class="winner">🏆 Победитель: ${precinct.winner.subject_name}</div>
+                        <p>${precinct.winner.votes} голосов (${precinct.winner.percentage}%)</p>
+                    `;
+                }
+
+                if (precinct.results.length > 0) {
+                    popupContent += '<hr><strong>Все результаты:</strong><br>';
+                    precinct.results.forEach(result => {
+                        popupContent += `
+                            <div class="result">
+                                ${result.subject_name}: ${result.votes} (${result.percentage}%)
+                            </div>
+                        `;
+                    });
+                }
+
+                popupContent += '</div>';
+                marker.bindPopup(popupContent);
+
+                markers.push(marker);
+            });
+
+            // Добавить легенду
+            updateLegend();
+        }
+
+        // Обновление легенды
+        function updateLegend() {
+            const existingLegend = document.querySelector('.legend');
+            if (existingLegend) {
+                existingLegend.remove();
+            }
+
+            const legend = L.control({ position: 'bottomright' });
+
+            legend.onAdd = function (map) {
+                const div = L.DomUtil.create('div', 'legend');
+                div.innerHTML = '<h4>Легенда</h4>';
+
+                candidates.forEach((candidate, index) => {
+                    const color = candidateColors[index % candidateColors.length];
+                    div.innerHTML += `
+                        <div class="legend-item">
+                            <div class="legend-color" style="background: ${color}"></div>
+                            <span>${candidate.name}</span>
+                        </div>
+                    `;
+                });
+
+                return div;
+            };
+
+            legend.addTo(map);
+        }
+
+        // Обновление статистики
+        function updateStats(aggregateData) {
+            const statsContainer = document.getElementById('statsContainer');
+
+            // Используем данные из precincts для отображаемых участков
+            const totalPrecincts = precincts.length;
+            const processedPrecincts = precincts.filter(p => p.results.length > 0).length;
+
+            // Используем агрегированные данные для общей статистики
+            let totalVotes = 0;
+            let leader = null;
+            let maxVotes = 0;
+
+            if (aggregateData && aggregateData.results) {
+                totalVotes = aggregateData.total_votes;
+
+                aggregateData.results.forEach(result => {
+                    if (result.votes > maxVotes) {
+                        maxVotes = result.votes;
+                        leader = result.subject_name;
+                    }
+                });
+            }
+
+            statsContainer.innerHTML = `
+                <div class="stat-card">
+                    <h3>Участков на карте</h3>
+                    <div class="value">${totalPrecincts}</div>
+                    <p style="font-size: 0.9em; color: #666;">Образец для демонстрации</p>
+                </div>
+                <div class="stat-card">
+                    <h3>С результатами</h3>
+                    <div class="value">${processedPrecincts}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Всего голосов</h3>
+                    <div class="value">${totalVotes.toLocaleString()}</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Лидер голосования</h3>
+                    <div class="value" style="font-size: 1.2em;">${leader || 'N/A'}</div>
+                    <p>${maxVotes.toLocaleString()} голосов (${aggregateData && aggregateData.total_votes > 0 ? ((maxVotes / aggregateData.total_votes * 100).toFixed(1)) : 0}%)</p>
+                </div>
+            `;
+        }
+
+        // События
+        document.getElementById('electionSelect').addEventListener('change', (e) => {
+            currentElection = e.target.value;
+            loadElectionData(currentElection);
+        });
+
+        document.getElementById('viewMode').addEventListener('change', () => {
+            updateMap();
+        });
+
+        // Инициализация
+        loadBoundariesDemoLayer();
+        loadPrecinctBoundaries();  // Загружаем полигоны участков
+        loadElections();
+
+        // Загрузка полигонов участков из API
+        async function loadPrecinctBoundaries() {
+            try {
+                const resp = await fetch(`${API_BASE}/public/boundaries/precincts`);
+                if (!resp.ok) {
+                    console.log('Границы участков не найдены. Запустите boundary pipeline.');
+                    return;
+                }
+                const geojson = await resp.json();
+                
+                if (!geojson.features || geojson.features.length === 0) {
+                    console.log('GeoJSON пуст');
+                    return;
+                }
+
+                console.log(`Загружено ${geojson.features.length} полигонов участков`);
+
+                if (precinctBoundariesLayer) {
+                    map.removeLayer(precinctBoundariesLayer);
+                }
+
+                precinctBoundariesLayer = L.geoJSON(geojson, {
+                    style: function(feature) {
+                        return {
+                            fillColor: '#667eea',
+                            weight: 2,
+                            opacity: 1,
+                            color: '#1e3c72',
+                            fillOpacity: 0.4
+                        };
+                    },
+                    onEachFeature: function(feature, layer) {
+                        const props = feature.properties || {};
+                        
+                        const html = `
+                            <div class="popup-content">
+                                <h3>🗳️ Участок № ${props.precinct_id || '?'}</h3>
+                                <div class="result"><strong>Центр:</strong> ${props.center_name || 'Не указан'}</div>
+                                <div class="result"><strong>Адрес:</strong> ${props.center_address || 'Не указан'}</div>
+                                <div class="result"><strong>Город:</strong> ${props.city || 'Не указан'}</div>
+                                ${props.center_phone ? `<div class="result"><strong>Телефон:</strong> ${props.center_phone}</div>` : ''}
+                                <hr>
+                                <div class="result"><em>Источник полигона: ${props.polygon_source || 'N/A'}</em></div>
+                                <div class="result"><em>Точек: ${props.points_count || 0}</em></div>
+                            </div>
+                        `;
+                        layer.bindPopup(html, { maxWidth: 400 });
+                        
+                        // Hover эффект
+                        layer.on('mouseover', function() {
+                            this.setStyle({ fillOpacity: 0.7, weight: 3 });
+                        });
+                        layer.on('mouseout', function() {
+                            this.setStyle({ fillOpacity: 0.4, weight: 2 });
+                        });
+                    }
+                }).addTo(map);
+
+                // Если есть данные — центрируем карту на Усть-Каменогорск
+                if (geojson.features.length > 0) {
+                    const bounds = precinctBoundariesLayer.getBounds();
+                    if (bounds.isValid()) {
+                        map.fitBounds(bounds, { padding: [50, 50] });
+                    }
+                }
+
+            } catch (e) {
+                console.warn('Не удалось загрузить границы участков:', e);
+            }
+        }
+
+        // Автоматически загрузить первые выборы через 1 секунду
+        setTimeout(() => {
+            const select = document.getElementById('electionSelect');
+            if (select.value) {
+                loadElectionData(select.value);
+            }
+        }, 1000);
+    </script>
+</body>
+
+</html>

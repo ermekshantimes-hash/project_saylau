@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Открытые выборы РК</title>
+  <link rel="stylesheet" href="/static/theme.css">
+  <script src="/static/theme.js" defer></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+      background-attachment: fixed;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+
+    .topbar {
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+      padding: 18px;
+      border-radius: 18px;
+      background: var(--container-bg);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 10px 26px var(--shadow-color);
+    }
+    .title { margin:0; font-size: 28px; font-weight: 700; letter-spacing: -0.2px; color: var(--text-primary); }
+    .subtitle { margin:6px 0 0; color: var(--text-secondary); }
+    .nav { display:flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    .nav a {
+      text-decoration:none;
+      padding:10px 12px;
+      border-radius:10px;
+      background: var(--control-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav a:hover { background: var(--hover-bg); border-color: var(--accent-color); }
+    .nav a:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
+
+    .panel {
+      background: var(--container-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 18px;
+      box-shadow: 0 12px 30px var(--shadow-color);
+      padding: 18px;
+    }
+    .grid4 { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    @media (max-width: 1000px) { .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 600px) { .grid4 { grid-template-columns: 1fr; } }
+
+    .card {
+      padding: 14px;
+      border-radius: 14px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      background:
+        linear-gradient(var(--container-bg), var(--container-bg)) padding-box,
+        linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%) border-box;
+      box-shadow: 0 6px 18px var(--shadow-color);
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    .card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 26px var(--shadow-color);
+    }
+    .card.disabled { opacity: 0.5; cursor: not-allowed; }
+    .card h3 { margin: 0; font-size: 16px; color: var(--text-primary); }
+    .card p { margin: 6px 0 0; color: var(--text-secondary); font-size: 13px; }
+    .card.active { box-shadow: 0 14px 34px var(--shadow-color); }
+
+    .row { display:flex; gap: 10px; flex-wrap: wrap; }
+    .chip {
+      padding: 8px 11px;
+      border-radius: 999px;
+      border: 1px solid var(--border-color);
+      background: var(--control-bg);
+      cursor: pointer;
+      color: var(--text-primary);
+      box-shadow: 0 2px 6px var(--shadow-color);
+    }
+    .chip:hover { background: var(--hover-bg); border-color: var(--accent-color); }
+    .chip.active { border-color: var(--accent-color); background: var(--container-bg); font-weight: 600; }
+    .chip:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
+
+    .form { display:flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    .field { min-width: 220px; flex: 1; }
+    .field label { display:block; margin-bottom: 6px; color: var(--text-secondary); font-size: 13px; }
+    .field select, .field input {
+      width:100%; padding:10px; border-radius: 10px;
+      border: 1px solid var(--border-color);
+      background: var(--control-bg);
+      color: var(--text-primary);
+    }
+    .field select:focus, .field input:focus { outline: 2px solid var(--accent-color); outline-offset: 2px; }
+
+    .tabs { display:flex; gap: 10px; margin-top: 14px; }
+    .tab { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--control-bg); cursor: pointer; color: var(--text-primary); }
+    .tab:hover { background: var(--hover-bg); border-color: var(--accent-color); }
+    .tab.active { border-color: var(--accent-color); background: var(--container-bg); font-weight: 600; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; border-radius: 14px; overflow: hidden; }
+    th, td { padding: 10px; border-bottom: 1px solid var(--table-border); color: var(--text-primary); }
+    th { text-align:left; background: var(--control-bg); color: var(--text-secondary); font-weight: 600; }
+    tbody tr:nth-child(even) { background: color-mix(in srgb, var(--container-bg) 92%, var(--hover-bg)); }
+    tr.clickable { cursor: pointer; }
+    tr.clickable:hover { background: var(--hover-bg); }
+
+    .meta { margin-top: 12px; color: var(--text-secondary); font-size: 13px; display:flex; gap: 14px; flex-wrap: wrap; }
+    .detail { margin-top: 12px; padding: 12px; border: 1px solid var(--border-color); border-radius: 12px; background: var(--control-bg); }
+    .detail .name { color: var(--text-primary); font-weight: 600; }
+    .detail .votes { color: var(--text-primary); margin-top: 6px; }
+    .hint { margin-top: 10px; color: var(--text-secondary); font-size: 13px; }
+    .error { margin-top: 12px; padding: 12px; border-radius: 12px; border: 1px solid var(--error-border); background: var(--error-bg); color: var(--error-text); }
+
+    @supports not (color: color-mix(in srgb, white 50%, black)) {
+      tbody tr:nth-child(even) { background: var(--container-bg); }
+    }
+  </style>
+</head>
+<body>
+  <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">☀️</button>
+
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1 class="title">Открытые выборы РК</h1>
+        <p class="subtitle">Выберите выборы → уровень → кандидаты/партии</p>
+        <div class="nav">
+          <a href="/">Главная</a>
+          <a href="/map.html">Карта</a>
+          <a href="/upload.html">Загрузка протокола</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div id="electionCards" class="grid4"></div>
+      <div id="electionHint" class="hint"></div>
+    </div>
+
+    <div class="panel" style="margin-top: 14px;" id="workPanel" hidden>
+      <div class="row" id="scopeChips"></div>
+      <div class="form" id="selectors"></div>
+      <div class="tabs" id="typeTabs"></div>
+      <div class="meta" id="summaryMeta"></div>
+      <div id="tableWrap"></div>
+      <div id="detail" class="detail" hidden></div>
+      <div id="error" class="error" hidden></div>
+    </div>
+  </div>
+
+  <script>
+    const API = window.location.origin + '/api';
+
+    const CARD_DEFS = [
+      { key: 'presidential', title: 'Президентские выборы' },
+      { key: 'parliamentary', title: 'Мажилис' },
+      { key: 'maslikhat_oblast', title: 'Областной маслихат' },
+      { key: 'maslikhat_district', title: 'Маслихат районов и городов' },
+    ];
+
+    const SCOPES = [
+      { key: 'country', title: 'Республика' },
+      { key: 'oblast', title: 'Область' },
+      { key: 'city', title: 'Город' },
+      { key: 'district', title: 'Район' },
+      { key: 'okrug', title: 'Округ' },
+      { key: 'precinct', title: 'Участок' },
+    ];
+
+    let elections = [];
+    let selectedElectionId = null;
+    let selectedElectionLabel = '';
+    let selectedScope = 'country';
+    let selectedSubjectType = 'candidate';
+
+    let topRegions = [];
+    let childrenCache = new Map();
+
+    const state = {
+      oblastId: null,
+      cityId: null,
+      districtId: null,
+      okrugId: null,
+      precinctId: null,
+    };
+
+    function setError(message) {
+      const el = document.getElementById('error');
+      if (!message) {
+        el.hidden = true;
+        el.textContent = '';
+        return;
+      }
+      el.hidden = false;
+      el.textContent = message;
+    }
+
+    async function apiGet(path) {
+      const res = await fetch(API + path);
+      if (!res.ok) {
+        let msg = 'Ошибка запроса';
+        try {
+          const data = await res.json();
+          msg = data?.detail || msg;
+        } catch {}
+        throw new Error(msg);
+      }
+      return await res.json();
+    }
+
+    function renderElectionCards() {
+      const container = document.getElementById('electionCards');
+      container.innerHTML = CARD_DEFS.map(def => {
+        const match = elections.find(e => (e.election_type || '').toLowerCase() === def.key) ||
+          elections.find(e => (e.name || '').toLowerCase().includes(def.title.toLowerCase()));
+        const available = !!match;
+        const active = available && selectedElectionId === match.id;
+        return `
+          <div class="card ${available ? '' : 'disabled'} ${active ? 'active' : ''}" data-id="${available ? match.id : ''}">
+            <h3>${def.title}</h3>
+            <p>${available ? (match.name + ' • ' + (match.election_date || '')) : 'Нет данных (не создано в базе)'}</p>
+          </div>
+        `;
+      }).join('');
+
+      container.querySelectorAll('.card').forEach(card => {
+        card.addEventListener('click', () => {
+          const id = card.dataset.id;
+          if (!id) return;
+          selectElection(parseInt(id, 10));
+        });
+      });
+
+      document.getElementById('electionHint').textContent = selectedElectionId ? '' : 'Доступно: выберите выборы из 4 карточек.';
+    }
+
+    function renderScopeChips() {
+      const wrap = document.getElementById('scopeChips');
+      wrap.innerHTML = SCOPES.map(s => {
+        const active = s.key === selectedScope;
+        return `<div class="chip ${active ? 'active' : ''}" data-scope="${s.key}">${s.title}</div>`;
+      }).join('');
+      wrap.querySelectorAll('.chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          selectedScope = chip.dataset.scope;
+          state.precinctId = null;
+          setError('');
+          renderScopeChips();
+          renderSelectors();
+          loadAndRenderResults();
+        });
+      });
+    }
+
+    async function loadTopRegions() {
+      if (!selectedElectionId) return;
+      topRegions = await apiGet(`/elections/${selectedElectionId}/regions`);
+    }
+
+    async function loadChildren(regionId) {
+      if (!regionId) return [];
+      const key = String(regionId);
+      if (childrenCache.has(key)) return childrenCache.get(key);
+      const kids = await apiGet(`/regions/${regionId}/children`);
+      childrenCache.set(key, kids);
+      return kids;
+    }
+
+    async function refreshChildrenSelect(selectEl, parentRegionId, selectedId = null) {
+      if (!selectEl) return;
+      if (!parentRegionId) {
+        selectEl.innerHTML = '<option value="">Выберите область сначала</option>';
+        selectEl.disabled = true;
+        return;
+      }
+      const kids = await loadChildren(parentRegionId);
+      const options = kids.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+      selectEl.innerHTML = '<option value="">Выберите</option>' + options;
+      selectEl.disabled = false;
+      selectEl.value = selectedId || '';
+    }
+
+    function pickScopeRegionId() {
+      if (selectedScope === 'country') return null;
+      if (selectedScope === 'oblast') return state.oblastId;
+      if (selectedScope === 'city') return state.cityId || state.oblastId;
+      if (selectedScope === 'district') return state.districtId || state.cityId || state.oblastId;
+      if (selectedScope === 'okrug') return state.okrugId || state.districtId || state.cityId || state.oblastId;
+      return null;
+    }
+
+    function renderSelectors() {
+      const wrap = document.getElementById('selectors');
+      if (!selectedElectionId) { wrap.innerHTML = ''; return; }
+
+      const needsPrecinct = selectedScope === 'precinct';
+
+      const oblastOptions = (topRegions || []).map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+      const parts = [];
+
+      if (selectedScope !== 'country') {
+        parts.push(`
+          <div class="field">
+            <label>Область</label>
+            <select id="selOblast">
+              <option value="">Выберите</option>
+              ${oblastOptions}
+            </select>
+          </div>
+        `);
+      }
+
+      if (selectedScope === 'city' || selectedScope === 'district' || selectedScope === 'okrug' || needsPrecinct) {
+        parts.push(`
+          <div class="field">
+            <label>Дочерний регион</label>
+            <select id="selCity" disabled>
+              <option value="">Выберите область сначала</option>
+            </select>
+          </div>
+        `);
+      }
+
+      if (selectedScope === 'district' || selectedScope === 'okrug' || needsPrecinct) {
+        parts.push(`
+          <div class="field">
+            <label>Следующий уровень</label>
+            <select id="selDistrict" disabled>
+              <option value="">Выберите регион выше</option>
+            </select>
+          </div>
+        `);
+      }
+
+      if (selectedScope === 'okrug' || needsPrecinct) {
+        parts.push(`
+          <div class="field">
+            <label>Округ (если есть)</label>
+            <select id="selOkrug" disabled>
+              <option value="">Выберите регион выше</option>
+            </select>
+          </div>
+        `);
+      }
+
+      if (needsPrecinct) {
+        parts.push(`
+          <div class="field">
+            <label>ID участка</label>
+            <input id="inpPrecinct" type="number" min="1" placeholder="Например: 1286" />
+          </div>
+        `);
+      }
+
+      wrap.innerHTML = parts.join('');
+
+      const selOblast = document.getElementById('selOblast');
+      const selCity = document.getElementById('selCity');
+      const selDistrict = document.getElementById('selDistrict');
+      const selOkrug = document.getElementById('selOkrug');
+      const inpPrecinct = document.getElementById('inpPrecinct');
+
+      if (selOblast) {
+        selOblast.value = state.oblastId || '';
+        selOblast.addEventListener('change', async () => {
+          state.oblastId = selOblast.value ? parseInt(selOblast.value, 10) : null;
+          state.cityId = null; state.districtId = null; state.okrugId = null;
+          setError('');
+          await refreshChildrenSelect(selCity, state.oblastId, state.cityId);
+          if (selDistrict) { selDistrict.innerHTML = '<option value="">Выберите регион выше</option>'; selDistrict.disabled = true; }
+          if (selOkrug) { selOkrug.innerHTML = '<option value="">Выберите регион выше</option>'; selOkrug.disabled = true; }
+          loadAndRenderResults();
+        });
+      }
+
+      if (selCity) {
+        refreshChildrenSelect(selCity, state.oblastId, state.cityId);
+        selCity.addEventListener('change', async () => {
+          state.cityId = selCity.value ? parseInt(selCity.value, 10) : null;
+          state.districtId = null; state.okrugId = null;
+          setError('');
+          await refreshChildrenSelect(selDistrict, state.cityId, state.districtId);
+          if (selOkrug) { selOkrug.innerHTML = '<option value="">Выберите регион выше</option>'; selOkrug.disabled = true; }
+          loadAndRenderResults();
+        });
+      }
+
+      if (selDistrict) {
+        refreshChildrenSelect(selDistrict, state.cityId, state.districtId);
+        selDistrict.addEventListener('change', async () => {
+          state.districtId = selDistrict.value ? parseInt(selDistrict.value, 10) : null;
+          state.okrugId = null;
+          setError('');
+          await refreshChildrenSelect(selOkrug, state.districtId, state.okrugId);
+          loadAndRenderResults();
+        });
+      }
+
+      if (selOkrug) {
+        refreshChildrenSelect(selOkrug, state.districtId, state.okrugId);
+        selOkrug.addEventListener('change', () => {
+          state.okrugId = selOkrug.value ? parseInt(selOkrug.value, 10) : null;
+          setError('');
+          loadAndRenderResults();
+        });
+      }
+
+      if (inpPrecinct) {
+        inpPrecinct.value = state.precinctId || '';
+        inpPrecinct.addEventListener('input', () => {
+          const v = inpPrecinct.value ? parseInt(inpPrecinct.value, 10) : null;
+          state.precinctId = Number.isFinite(v) ? v : null;
+          setError('');
+        });
+        inpPrecinct.addEventListener('change', () => loadAndRenderResults());
+      }
+    }
+
+    function renderTabs() {
+      const tabs = document.getElementById('typeTabs');
+      tabs.innerHTML = `
+        <div class="tab ${selectedSubjectType === 'candidate' ? 'active' : ''}" data-type="candidate">По людям (кандидаты)</div>
+        <div class="tab ${selectedSubjectType === 'party' ? 'active' : ''}" data-type="party">По партиям</div>
+      `;
+      tabs.querySelectorAll('.tab').forEach(t => {
+        t.addEventListener('click', () => {
+          selectedSubjectType = t.dataset.type;
+          document.getElementById('detail').hidden = true;
+          loadAndRenderResults();
+        });
+      });
+    }
+
+    function renderTable(summary, results) {
+      const meta = document.getElementById('summaryMeta');
+      meta.innerHTML = `
+        <div>Выборы: <strong>${selectedElectionLabel}</strong></div>
+        <div>Голосов: <strong>${summary.total_votes}</strong></div>
+        <div>Участков с данными: <strong>${summary.processed_precincts}/${summary.total_precincts}</strong></div>
+        <div>Покрытие: <strong>${summary.coverage_percent}%</strong></div>
+      `;
+
+      const tableWrap = document.getElementById('tableWrap');
+      if (!results.length) {
+        tableWrap.innerHTML = '<div class="hint">Нет данных для выбранного уровня.</div>';
+        return;
+      }
+
+      tableWrap.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Субъект</th>
+              <th>Голоса</th>
+              <th>%</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${results.map(r => `
+              <tr class="clickable" data-id="${r.subject_id}">
+                <td>${r.subject_name}</td>
+                <td>${r.votes}</td>
+                <td>${r.percentage ?? ''}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+
+      tableWrap.querySelectorAll('tr.clickable').forEach(tr => {
+        tr.addEventListener('click', () => {
+          const id = parseInt(tr.dataset.id, 10);
+          const item = results.find(x => x.subject_id === id);
+          if (!item) return;
+          const detail = document.getElementById('detail');
+          detail.hidden = false;
+          detail.innerHTML = `
+            <div class="name">${item.subject_name}</div>
+            <div class="votes">Голоса: <strong>${item.votes}</strong> (${item.percentage ?? 0}%)</div>
+          `;
+        });
+      });
+    }
+
+    async function loadAndRenderResults() {
+      if (!selectedElectionId) return;
+      setError('');
+      renderTabs();
+
+      try {
+        if (selectedScope === 'precinct') {
+          if (!state.precinctId) {
+            document.getElementById('tableWrap').innerHTML = '<div class="hint">Введите ID участка.</div>';
+            document.getElementById('summaryMeta').innerHTML = '';
+            return;
+          }
+          const data = await apiGet(`/precincts/${state.precinctId}/results/${selectedElectionId}`);
+          const filtered = (data.results || []).filter(r => (r.subject_type || 'candidate') === selectedSubjectType);
+          const summary = {
+            total_votes: (filtered || []).reduce((a, b) => a + (b.votes || 0), 0),
+            total_precincts: 1,
+            processed_precincts: 1,
+            coverage_percent: 100,
+          };
+          renderTable(summary, filtered.map(r => ({ subject_id: r.subject_id, subject_name: r.subject_name, votes: r.votes, percentage: r.percentage })));
+          return;
+        }
+
+        const regionId = pickScopeRegionId();
+        if (selectedScope !== 'country' && !regionId) {
+          document.getElementById('tableWrap').innerHTML = '<div class="hint">Выберите регион.</div>';
+          document.getElementById('summaryMeta').innerHTML = '';
+          return;
+        }
+
+        const path = regionId ? `/elections/${selectedElectionId}/summary?region_id=${regionId}` : `/elections/${selectedElectionId}/summary`;
+        const summary = await apiGet(path);
+        const filtered = (summary.results || []).filter(r => (r.subject_type || 'candidate') === selectedSubjectType);
+        renderTable(summary, filtered);
+      } catch (e) {
+        setError(e.message || String(e));
+      }
+    }
+
+    async function selectElection(electionId) {
+      selectedElectionId = electionId;
+      const match = elections.find(e => e.id === electionId);
+      selectedElectionLabel = match ? match.name : ('ID ' + electionId);
+
+      selectedScope = 'country';
+      selectedSubjectType = 'candidate';
+      childrenCache = new Map();
+      state.oblastId = null; state.cityId = null; state.districtId = null; state.okrugId = null; state.precinctId = null;
+
+      document.getElementById('workPanel').hidden = false;
+      renderElectionCards();
+      renderScopeChips();
+      await loadTopRegions();
+      renderSelectors();
+      await loadAndRenderResults();
+    }
+
+    async function init() {
+      try {
+        elections = await apiGet('/elections');
+      } catch (e) {
+        document.getElementById('electionHint').textContent = 'API недоступен. Запустите сервер и обновите страницу.';
+        return;
+      }
+      renderElectionCards();
+    }
+
+    init();
+  </script>
+</body>
+</html>

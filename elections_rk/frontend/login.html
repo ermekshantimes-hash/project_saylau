@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход - Elections RK</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #5a6fd1;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+        }
+
+        .success {
+            background: #efe;
+            color: #3c3;
+        }
+
+        .info {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .back-link a {
+            color: #667eea;
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="login-container">
+        <h1>🔐 Вход</h1>
+        <p class="subtitle">Система наблюдения за выборами</p>
+
+        <div id="messageContainer"></div>
+
+        <div class="info">
+            <strong>ℹ️ Для тестирования:</strong><br>
+            Email: <code>test@elections.kz</code><br>
+            Пароль: <code>test123</code>
+        </div>
+
+        <form id="loginForm" style="margin-top: 20px;">
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" value="test@elections.kz" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Пароль:</label>
+                <input type="password" id="password" name="password" value="test123" required>
+            </div>
+
+            <button type="submit" id="loginBtn">Войти</button>
+        </form>
+
+        <div class="back-link">
+            <a href="/">← Вернуться на главную</a>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            const loginBtn = document.getElementById('loginBtn');
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Вход...';
+
+            showMessage('⏳ Авторизация...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        password: password
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Ошибка авторизации');
+                }
+
+                const data = await response.json();
+
+                // Сохранить токен
+                localStorage.setItem('access_token', data.access_token);
+                localStorage.setItem('user_email', email);
+
+                showMessage('✅ Успешный вход!', 'success');
+
+                // Редирект через секунду
+                setTimeout(() => {
+                    const returnUrl = new URLSearchParams(window.location.search).get('return') || '/';
+                    window.location.href = returnUrl;
+                }, 1000);
+
+            } catch (error) {
+                console.error('Login error:', error);
+                showMessage(`❌ ${error.message}`, 'error');
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Войти';
+            }
+        });
+
+        function showMessage(text, type) {
+            const container = document.getElementById('messageContainer');
+            container.innerHTML = `<div class="message ${type}">${text}</div>`;
+        }
+    </script>
+</body>
+
+</html>

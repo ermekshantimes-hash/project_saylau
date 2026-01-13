@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Control Panel - Elections RK</title>
+    <link rel="stylesheet" href="/static/theme.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            border-bottom: 1px solid #333;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            margin: 0;
+            color: #fff;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+        }
+
+        .card {
+            background: #252540;
+            border-radius: 10px;
+            padding: 25px;
+            border: 1px solid #333;
+        }
+
+        .card h2 {
+            margin-top: 0;
+            color: #667eea;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .status-on {
+            background: #4CAF50;
+            box-shadow: 0 0 10px #4CAF50;
+        }
+
+        .status-off {
+            background: #555;
+        }
+
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #1f1f35;
+            border-radius: 5px;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .log-window {
+            background: #000;
+            font-family: monospace;
+            padding: 15px;
+            height: 200px;
+            overflow-y: auto;
+            border-radius: 5px;
+            margin-top: 30px;
+            border: 1px solid #333;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            border-bottom: 1px solid #222;
+            padding-bottom: 2px;
+        }
+
+        .log-time {
+            color: #888;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>⚡ Admin Control Center</h1>
+            <div>
+                <span id="connectionStatus">Checking connection...</span>
+                <a href="index.html" style="color: #aaa; margin-left: 20px;">Exit</a>
+            </div>
+        </header>
+
+        <div class="grid">
+            <!-- Crisis Modes -->
+            <div class="card">
+                <h2>🚨 Crisis Management</h2>
+
+                <div class="control-row">
+                    <div>
+                        <span id="readOnlyStatus" class="status-indicator status-off"></span>
+                        <strong>Read-Only Mode</strong>
+                        <div style="font-size: 0.8em; color: #aaa;">Block all write operations</div>
+                    </div>
+                    <button id="btnReadOnly" onclick="toggleMode('read-only')">Enable</button>
+                </div>
+
+                <div class="control-row">
+                    <div>
+                        <span id="maintenanceStatus" class="status-indicator status-off"></span>
+                        <strong>Maintenance Mode</strong>
+                        <div style="font-size: 0.8em; color: #aaa;">Block all non-admin access</div>
+                    </div>
+                    <button id="btnMaintenance" onclick="toggleMode('maintenance')">Enable</button>
+                </div>
+
+                <div class="control-row">
+                    <div>
+                        <span id="cdnStatus" class="status-indicator status-off"></span>
+                        <strong>CDN Fallback</strong>
+                        <div style="font-size: 0.8em; color: #aaa;">Serve static snapshots</div>
+                    </div>
+                    <button id="btnCdn" onclick="toggleMode('cdn')">Enable</button>
+                </div>
+            </div>
+
+            <!-- System Health -->
+            <div class="card">
+                <h2>🏥 System Health</h2>
+                <div class="control-row">
+                    <span>Database Connection</span>
+                    <span id="dbStatus" style="color: #4CAF50;">OK</span>
+                </div>
+                <div class="control-row">
+                    <span>API Latency</span>
+                    <span id="apiLatency">...</span>
+                </div>
+                <div class="control-row">
+                    <span>Active Users</span>
+                    <span id="activeUsers">...</span>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button class="btn-primary" style="width: 100%;" onclick="createSnapshot()">📸 Create Emergency
+                        Snapshot</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="log-window" id="systemLog">
+            <div class="log-entry"><span class="log-time">System</span> Ready.</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let currentState = {};
+
+        async function init() {
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            await refreshStatus();
+            setInterval(refreshStatus, 5000);
+        }
+
+        async function refreshStatus() {
+            try {
+                const start = Date.now();
+                const res = await fetch(`${API_BASE}/api/crisis/status`);
+                const latency = Date.now() - start;
+
+                currentState = await res.json();
+
+                updateUI(currentState);
+                document.getElementById('apiLatency').textContent = `${latency}ms`;
+                document.getElementById('connectionStatus').textContent = '🟢 Connected';
+                document.getElementById('connectionStatus').style.color = '#4CAF50';
+            } catch (e) {
+                document.getElementById('connectionStatus').textContent = '🔴 Disconnected';
+                document.getElementById('connectionStatus').style.color = '#f44336';
+            }
+        }
+
+        function updateUI(state) {
+            // Read Only
+            updateControl('readOnly', state.read_only, 'read-only');
+            updateControl('maintenance', state.maintenance, 'maintenance');
+            updateControl('cdn', state.cdn_fallback, 'cdn');
+        }
+
+        function updateControl(id, isActive, apiName) {
+            const indicator = document.getElementById(`${id}Status`);
+            const btn = document.getElementById(`btn${id.charAt(0).toUpperCase() + id.slice(1)}`);
+
+            if (isActive) {
+                indicator.className = 'status-indicator status-on';
+                btn.textContent = 'Disable';
+                btn.className = 'btn-danger';
+                btn.onclick = () => disableMode(apiName);
+            } else {
+                indicator.className = 'status-indicator status-off';
+                btn.textContent = 'Enable';
+                btn.className = 'btn-success';
+                btn.onclick = () => enableMode(apiName);
+            }
+        }
+
+        async function enableMode(mode) {
+            const token = localStorage.getItem('access_token');
+            const reason = prompt("Enter reason for enabling " + mode + ":", "Emergency Admin Action");
+            if (!reason) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/api/crisis/${mode}/enable`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ reason: reason })
+                });
+
+                if (res.ok) {
+                    log(`Enabled ${mode} mode`);
+                    refreshStatus();
+                } else {
+                    log(`Failed to enable ${mode}`);
+                }
+            } catch (e) {
+                log(`Error: ${e.message}`);
+            }
+        }
+
+        async function disableMode(mode) {
+            const token = localStorage.getItem('access_token');
+            if (!confirm(`Are you sure you want to DISABLE ${mode} mode?`)) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/api/crisis/${mode}/disable`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (res.ok) {
+                    log(`Disabled ${mode} mode`);
+                    refreshStatus();
+                }
+            } catch (e) {
+                log(`Error: ${e.message}`);
+            }
+        }
+
+        async function createSnapshot() {
+            const token = localStorage.getItem('access_token');
+            log("Creating snapshot...");
+
+            try {
+                const res = await fetch(`${API_BASE}/api/crisis/emergency-snapshot`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                log(`Snapshot created: ${data.file} (${(data.size_bytes / 1024).toFixed(2)} KB)`);
+            } catch (e) {
+                log(`Snapshot failed: ${e.message}`);
+            }
+        }
+
+        function log(msg) {
+            const div = document.getElementById('systemLog');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">${new Date().toLocaleTimeString()}</span> ${msg}`;
+            div.insertBefore(entry, div.firstChild);
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

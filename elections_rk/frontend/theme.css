@@ -1,0 +1,146 @@
+/* Universal Dark/Light Theme Switcher for RK Elections */
+
+:root {
+  /* Light theme (default) */
+  --bg-gradient-start: #667eea;
+  --bg-gradient-end: #764ba2;
+  --container-bg: #ffffff;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --control-bg: #f8f9fa;
+  --border-color: #ddd;
+  --hover-bg: #f5f5f5;
+  --table-border: #e0e0e0;
+  --accent-color: #667eea;
+  --accent-alt: #764ba2;
+  --shadow-color: rgba(0,0,0,0.2);
+  --error-bg: #fee;
+  --error-border: #fcc;
+  --error-text: #c33;
+  --success-bg: #d4edda;
+  --success-border: #c3e6cb;
+  --success-text: #155724;
+  --page-bg: #f5f5f5;
+}
+
+[data-theme="dark"] {
+  /* Dark theme */
+  --bg-gradient-start: #1a1a2e;
+  --bg-gradient-end: #16213e;
+  --container-bg: #0f1419;
+  --text-primary: #e8eaed;
+  --text-secondary: #9aa0a6;
+  --control-bg: #1f2937;
+  --border-color: #374151;
+  --hover-bg: #1f2937;
+  --table-border: #374151;
+  --accent-color: #8b5cf6;
+  --accent-alt: #a78bfa;
+  --shadow-color: rgba(0,0,0,0.5);
+  --error-bg: #3f1f1f;
+  --error-border: #8b3a3a;
+  --error-text: #ff6b6b;
+  --success-bg: #1f3a2e;
+  --success-border: #2d5a3f;
+  --success-text: #6ee7b7;
+  --page-bg: #111827;
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: var(--accent-color);
+  border: none;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  font-size: 24px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px var(--shadow-color);
+  transition: transform 0.3s ease, background 0.3s ease;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-toggle:hover {
+  transform: scale(1.1) rotate(20deg);
+}
+
+.theme-toggle:active {
+  transform: scale(0.95);
+}
+
+/* Global Theme Transitions */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+body {
+  background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+  color: var(--text-primary);
+}
+
+.container, .controls, .events, .card {
+  background: var(--container-bg);
+  color: var(--text-primary);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary);
+}
+
+p, span, label {
+  color: var(--text-secondary);
+}
+
+input, select, textarea {
+  background: var(--control-bg);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+button {
+  background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+}
+
+table {
+  background: var(--container-bg);
+}
+
+th {
+  background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+}
+
+td {
+  color: var(--text-primary);
+  border-color: var(--table-border);
+}
+
+tr:hover {
+  background: var(--hover-bg);
+}
+
+.nav-link {
+  background: var(--accent-color);
+}
+
+/* Status badges */
+.status.connected {
+  background-color: #4CAF50;
+}
+
+[data-theme="dark"] .status.connected {
+  background-color: #10b981;
+}
+
+.status.disconnected {
+  background-color: #f44336;
+}
+
+[data-theme="dark"] .status.disconnected {
+  background-color: #ef4444;
+}

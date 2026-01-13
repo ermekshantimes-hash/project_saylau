@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта нарушений - Открытые Выборы</title>
+    <link rel="stylesheet" href="/static/theme.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            flex: 1;
+        }
+
+        .incidents-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .incident-card {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+        }
+
+        .incident-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-header {
+            padding: 15px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .severity-high {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .severity-medium {
+            color: #ffc107;
+            font-weight: bold;
+        }
+
+        .severity-low {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .card-body {
+            padding: 15px;
+        }
+
+        .meta {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .nav-link {
+            display: inline-block;
+            margin: 0 10px;
+            text-decoration: none;
+            color: #667eea;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>🚨 Карта нарушений и инцидентов</h1>
+            <div style="margin-top: 20px;">
+                <a href="index.html" class="nav-link">🏠 Главная</a>
+                <a href="map.html" class="nav-link">🗺️ Карта</a>
+                <a href="analytics.html" class="nav-link">📊 Аналитика</a>
+            </div>
+        </header>
+
+        <div class="filters">
+            <select id="severityFilter" onchange="loadIncidents()">
+                <option value="">Все уровни серьезности</option>
+                <option value="HIGH">Высокая</option>
+                <option value="MEDIUM">Средняя</option>
+                <option value="LOW">Низкая</option>
+            </select>
+            <select id="typeFilter" onchange="loadIncidents()">
+                <option value="">Все типы нарушений</option>
+                <option value="BLOCK_ENTRY">Недопуск наблюдателя</option>
+                <option value="BALLOT_STUFFING">Вброс бюллетеней</option>
+                <option value="DOC_TAKEN">Изъятие документов</option>
+            </select>
+        </div>
+
+        <div id="incidentsContainer" class="incidents-grid">
+            <div style="grid-column: 1/-1; text-align: center; padding: 40px;">Загрузка...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        async function fetchJson(url, options = {}) {
+            const response = await fetch(url, options);
+            const contentType = response.headers.get('content-type') || '';
+            let payload = null;
+            if (contentType.includes('application/json')) {
+                try { payload = await response.json(); } catch { payload = null; }
+            } else {
+                try { payload = await response.text(); } catch { payload = null; }
+            }
+            return { response, payload };
+        }
+
+        async function loadIncidents() {
+            const severity = document.getElementById('severityFilter').value;
+            const type = document.getElementById('typeFilter').value;
+
+            const limit = 50;
+            const token = localStorage.getItem('access_token');
+            const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+            // Prefer authenticated full endpoint when possible.
+            let primaryUrl = `${API_BASE}/api/incidents?limit=${limit}`;
+            if (severity) primaryUrl += `&severity=${encodeURIComponent(severity)}`;
+
+            // Public fallback: returns only RESOLVED incidents with a limited schema.
+            let fallbackUrl = `${API_BASE}/api/public/incidents?limit=${limit}`;
+            if (severity) fallbackUrl += `&severity=${encodeURIComponent(severity)}`;
+
+            try {
+                const container = document.getElementById('incidentsContainer');
+
+                let incidents = [];
+                let usedPublic = false;
+
+                // 1) Try full endpoint if token exists.
+                if (token) {
+                    const { response, payload } = await fetchJson(primaryUrl, { headers });
+                    if (response.ok && payload && Array.isArray(payload.incidents)) {
+                        incidents = payload.incidents;
+                    } else if (response.status === 401 || response.status === 403) {
+                        // fall through to public
+                    } else if (!response.ok) {
+                        const message = (payload && payload.detail) ? payload.detail : 'Ошибка загрузки инцидентов';
+                        throw new Error(message);
+                    }
+                }
+
+                // 2) Fallback to public endpoint.
+                if (!incidents.length) {
+                    const { response, payload } = await fetchJson(fallbackUrl);
+                    if (!response.ok) {
+                        const message = (payload && payload.detail) ? payload.detail : 'Ошибка загрузки инцидентов';
+                        throw new Error(message);
+                    }
+                    usedPublic = true;
+                    incidents = Array.isArray(payload) ? payload : [];
+                }
+
+                // Normalize field names between endpoints.
+                const normalized = incidents.map(i => {
+                    if (usedPublic) {
+                        return {
+                            precinct_id: i.precinct_id,
+                            severity: i.severity,
+                            status: i.status,
+                            created_at: i.created_at,
+                            type: i.incident_type,
+                            description: null,
+                        };
+                    }
+                    return i;
+                });
+
+                // Client-side type filter (API does not support it consistently).
+                const filtered = type ? normalized.filter(i => String(i.type) === String(type)) : normalized;
+
+                if (!filtered.length) {
+                    container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px;">Нарушений не найдено</div>';
+                    return;
+                }
+
+                container.innerHTML = filtered.map(i => {
+                    const sev = String(i.severity || '').toLowerCase();
+                    const when = i.created_at ? new Date(i.created_at).toLocaleString() : '';
+                    const desc = i.description ? `<p>${i.description}</p>` : '<p style="opacity:0.8;">Описание доступно после авторизации.</p>';
+                    return `
+                        <div class="incident-card">
+                            <div class="card-header">
+                                <span>УИК #${i.precinct_id}</span>
+                                <span class="severity-${sev}">${i.severity}</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="meta">${when}</div>
+                                <strong>${i.type}</strong>
+                                ${desc}
+                                <div style="margin-top: 10px;">
+                                    <span style="background: #eee; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;">${i.status}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('incidentsContainer').innerHTML =
+                    `<div style="text-align:center; color: red;">${error.message || 'Ошибка загрузки данных'}</div>`;
+            }
+        }
+
+        loadIncidents();
+    </script>
+</body>
+
+</html>

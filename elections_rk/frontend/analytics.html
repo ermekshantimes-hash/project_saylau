@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Аналитика выборов - РК</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .nav {
+            background: #2c3e50;
+            padding: 15px 30px;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .nav a {
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .nav a:hover {
+            background: #34495e;
+        }
+
+        .controls {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        select {
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        select:hover {
+            border-color: #667eea;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+        }
+
+        .card h3 {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .card .value {
+            font-size: 2.5em;
+            font-weight: bold;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-container h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .chart-canvas {
+            max-height: 400px;
+        }
+
+        .table-container {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f8f9fa;
+            color: #2c3e50;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .rank-badge {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+            text-align: center;
+            border-radius: 50%;
+            font-weight: bold;
+            color: white;
+        }
+
+        .rank-1 {
+            background: #f39c12;
+        }
+
+        .rank-2 {
+            background: #95a5a6;
+        }
+
+        .rank-3 {
+            background: #cd7f32;
+        }
+
+        .rank-other {
+            background: #bdc3c7;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #ecf0f1;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.5s;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 60px;
+            font-size: 1.2em;
+            color: #666;
+        }
+
+        .region-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .region-card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .region-card h4 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .region-card .winner {
+            color: #27ae60;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Аналитика и статистика выборов</h1>
+            <p>Детальный анализ результатов голосования в Республике Казахстан</p>
+        </header>
+
+        <div class="nav">
+            <a href="index.html">🏠 Главная</a>
+            <a href="map.html">🗺️ Карта</a>
+            <a href="analytics.html" style="background: #34495e;">📊 Аналитика</a>
+            <a href="upload.html">📤 Загрузка</a>
+        </div>
+
+        <div class="controls">
+            <label for="electionSelect"><strong>Выборы:</strong></label>
+            <select id="electionSelect">
+                <option value="">Загрузка...</option>
+            </select>
+        </div>
+
+        <div class="content">
+            <div id="summarySection" class="summary-cards">
+                <div class="loading">Загрузка статистики...</div>
+            </div>
+
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h2>🎯 Распределение голосов</h2>
+                    <canvas id="pieChart" class="chart-canvas"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h2>📈 Сравнение по регионам</h2>
+                    <canvas id="barChart" class="chart-canvas"></canvas>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <h2>🏆 Сравнительная таблица участников</h2>
+                <div id="comparisonTable">
+                    <div class="loading">Загрузка данных...</div>
+                </div>
+            </div>
+
+            <div class="table-container" style="margin-top: 30px;">
+                <h2>🗺️ Результаты по регионам</h2>
+                <div id="regionStats">
+                    <div class="loading">Загрузка данных...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin + '/api';
+
+        let pieChart = null;
+        let barChart = null;
+        let currentElection = null;
+
+        // Загрузка выборов
+        async function loadElections() {
+            try {
+                const response = await fetch(`${API_BASE}/elections`);
+                const elections = await response.json();
+
+                const select = document.getElementById('electionSelect');
+                select.innerHTML = elections.map(e =>
+                    `<option value="${e.id}">${e.name} (${e.election_date})</option>`
+                ).join('');
+
+                if (elections.length > 0) {
+                    currentElection = elections[0].id;
+                    loadAnalytics(currentElection);
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки выборов:', error);
+            }
+        }
+
+        // Загрузка аналитики
+        async function loadAnalytics(electionId) {
+            try {
+                // Загрузить общую статистику
+                const summaryResponse = await fetch(`${API_BASE}/analytics/elections/${electionId}/summary`);
+                const summaryData = await summaryResponse.json();
+                displaySummary(summaryData);
+
+                // Загрузить данные для графиков
+                const chartsResponse = await fetch(`${API_BASE}/analytics/elections/${electionId}/charts`);
+                const chartsData = await chartsResponse.json();
+                displayCharts(chartsData);
+
+                // Загрузить сравнительную таблицу
+                const comparisonResponse = await fetch(`${API_BASE}/analytics/elections/${electionId}/comparison`);
+                const comparisonData = await comparisonResponse.json();
+                displayComparison(comparisonData);
+
+                // Загрузить результаты по регионам
+                const regionResponse = await fetch(`${API_BASE}/analytics/elections/${electionId}/by_region`);
+                const regionData = await regionResponse.json();
+                displayRegionStats(regionData);
+
+            } catch (error) {
+                console.error('Ошибка загрузки аналитики:', error);
+            }
+        }
+
+        // Отображение общей статистики
+        function displaySummary(data) {
+            const summarySection = document.getElementById('summarySection');
+
+            const leader = data.results[0] || { name: 'N/A', votes: 0, percentage: 0 };
+
+            summarySection.innerHTML = `
+                <div class="card">
+                    <h3>Всего голосов</h3>
+                    <div class="value">${data.total_votes.toLocaleString()}</div>
+                </div>
+                <div class="card">
+                    <h3>Обработано участков</h3>
+                    <div class="value">${data.processed_precincts} / ${data.total_precincts}</div>
+                </div>
+                <div class="card">
+                    <h3>Лидер голосования</h3>
+                    <div class="value" style="font-size: 1.5em;">${leader.name}</div>
+                    <p style="margin-top: 10px;">${leader.votes.toLocaleString()} голосов (${leader.percentage}%)</p>
+                </div>
+                <div class="card">
+                    <h3>Участников участвует</h3>
+                    <div class="value">${data.results.length}</div>
+                </div>
+            `;
+        }
+
+        // Отображение графиков
+        function displayCharts(data) {
+            // Круговая диаграмма
+            const pieCtx = document.getElementById('pieChart').getContext('2d');
+
+            if (pieChart) {
+                pieChart.destroy();
+            }
+
+            const colors = [
+                '#2ecc71', '#3498db', '#e74c3c', '#f39c12', '#9b59b6',
+                '#1abc9c', '#e67e22', '#95a5a6', '#34495e', '#16a085'
+            ];
+
+            pieChart = new Chart(pieCtx, {
+                type: 'pie',
+                data: {
+                    labels: data.pie_chart.map(d => d.label),
+                    datasets: [{
+                        data: data.pie_chart.map(d => d.value),
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((context.parsed / total) * 100).toFixed(2);
+                                    return `${context.label}: ${context.parsed.toLocaleString()} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Столбчатая диаграмма
+            const barCtx = document.getElementById('barChart').getContext('2d');
+
+            if (barChart) {
+                barChart.destroy();
+            }
+
+            barChart = new Chart(barCtx, {
+                type: 'bar',
+                data: {
+                    labels: data.bar_chart.labels,
+                    datasets: data.bar_chart.datasets.map((dataset, index) => ({
+                        label: dataset.label,
+                        data: dataset.data,
+                        backgroundColor: colors[index],
+                        borderColor: colors[index],
+                        borderWidth: 1
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function (value) {
+                                    return value.toLocaleString();
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    return `${context.dataset.label}: ${context.parsed.y.toLocaleString()}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Отображение сравнительной таблицы
+        function displayComparison(data) {
+            const comparisonDiv = document.getElementById('comparisonTable');
+
+            const subjects = Array.isArray(data.candidates) ? data.candidates : [];
+            const candidates = subjects.filter(s => (s.subject_type || '').toLowerCase() === 'candidate');
+            const parties = subjects.filter(s => (s.subject_type || '').toLowerCase() === 'party');
+
+            function renderTable(title, rows, kind) {
+                if (!rows.length) return '';
+
+                const totalVotes = rows.reduce((sum, r) => sum + (r.total_votes || 0), 0);
+
+                let html = `
+                    <h3 style="margin: 10px 0 15px; color: #2c3e50;">${title}</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Место</th>
+                                <th>${kind === 'party' ? 'Партия' : 'Кандидат'}</th>
+                                ${kind === 'candidate' ? '<th>Партия</th>' : ''}
+                                <th>Голосов</th>
+                                <th>Процент</th>
+                                <th>Побед на участках</th>
+                                <th>Средний %</th>
+                                <th>График</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                rows.forEach((row, index) => {
+                    const percentage = totalVotes > 0 ? ((row.total_votes / totalVotes) * 100).toFixed(2) : '0.00';
+                    const rankClass = index === 0 ? 'rank-1' : index === 1 ? 'rank-2' : index === 2 ? 'rank-3' : 'rank-other';
+
+                    html += `
+                        <tr>
+                            <td><span class="rank-badge ${rankClass}">${index + 1}</span></td>
+                            <td><strong>${row.name}</strong></td>
+                            ${kind === 'candidate' ? `<td>${row.party_name || '-'}</td>` : ''}
+                            <td>${(row.total_votes || 0).toLocaleString()}</td>
+                            <td>${percentage}%</td>
+                            <td>${row.precincts_won ?? 0}</td>
+                            <td>${row.avg_percentage ?? 0}%</td>
+                            <td>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: ${percentage}%"></div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody></table>';
+                return html;
+            }
+
+            const parts = [];
+            parts.push(renderTable('Кандидаты', candidates, 'candidate'));
+            parts.push(renderTable('Партии', parties, 'party'));
+
+            const html = parts.filter(Boolean).join('<div style="height: 20px;"></div>');
+            comparisonDiv.innerHTML = html || '<div class="loading">Нет данных для отображения</div>';
+            return;
+        }
+
+        // Отображение статистики по регионам
+        function displayRegionStats(data) {
+            const regionDiv = document.getElementById('regionStats');
+
+            let html = '<div class="region-stats">';
+
+            data.regions.forEach(region => {
+                const winnerPercentage = region.total_votes > 0
+                    ? ((region.winner_votes / region.total_votes) * 100).toFixed(2)
+                    : 0;
+
+                html += `
+                    <div class="region-card">
+                        <h4>${region.region_name}</h4>
+                        <p><strong>Всего голосов:</strong> ${region.total_votes.toLocaleString()}</p>
+                        <p class="winner">🏆 ${region.winner || 'N/A'}</p>
+                        <p>${region.winner_votes.toLocaleString()} голосов (${winnerPercentage}%)</p>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${winnerPercentage}%"></div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            regionDiv.innerHTML = html;
+        }
+
+        // События
+        document.getElementById('electionSelect').addEventListener('change', (e) => {
+            currentElection = e.target.value;
+            loadAnalytics(currentElection);
+        });
+
+        // Инициализация
+        loadElections();
+    </script>
+</body>
+
+</html>
